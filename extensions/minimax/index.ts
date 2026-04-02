@@ -21,6 +21,7 @@ import {
   minimaxMediaUnderstandingProvider,
   minimaxPortalMediaUnderstandingProvider,
 } from "./media-understanding-provider.js";
+import { buildMiniMaxSpeechProvider } from "./speech-provider.js";
 import type { MiniMaxRegion } from "./oauth.js";
 import { applyMinimaxApiConfig, applyMinimaxApiConfigCn } from "./onboard.js";
 import { buildMinimaxPortalProvider, buildMinimaxProvider } from "./provider-catalog.js";
@@ -282,5 +283,6 @@ export default definePluginEntry({
     });
     api.registerImageGenerationProvider(buildMinimaxImageGenerationProvider());
     api.registerImageGenerationProvider(buildMinimaxPortalImageGenerationProvider());
+    api.registerSpeechProvider(buildMiniMaxSpeechProvider());
   },
 });

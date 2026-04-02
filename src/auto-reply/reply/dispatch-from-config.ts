@@ -512,6 +512,15 @@ export async function dispatchReplyFromConfig(params: {
     }
 
     const { maybeApplyTtsToPayload } = await loadTtsRuntime();
+    // Resolve agent identity from the dispatch session key (which includes
+    // the agent prefix, e.g. "agent:rafa:telegram:123") rather than the raw
+    // inbound ctx.SessionKey.  This ensures per-agent TTS voice mappings
+    // match the *replying* agent, not the sender of the inbound message.
+    const dispatchAgentId = resolveSessionAgentId({
+      sessionKey: acpDispatchSessionKey,
+      config: cfg,
+    });
+
     const sendFinalPayload = async (
       payload: ReplyPayload,
     ): Promise<{ queuedFinal: boolean; routedFinalCount: number }> => {
@@ -522,7 +531,7 @@ export async function dispatchReplyFromConfig(params: {
         kind: "final",
         inboundAudio,
         ttsAuto: sessionTtsAuto,
-        agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
+        agentId: dispatchAgentId,
       });
       if (shouldRouteToOriginating && originatingChannel && originatingTo) {
         const result = await routeReplyRuntime.routeReply({
@@ -678,7 +687,7 @@ export async function dispatchReplyFromConfig(params: {
               kind: "tool",
               inboundAudio,
               ttsAuto: sessionTtsAuto,
-              agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
+              agentId: dispatchAgentId,
             });
             const deliveryPayload = resolveToolDeliveryPayload(ttsPayload);
             if (!deliveryPayload) {
@@ -729,7 +738,7 @@ export async function dispatchReplyFromConfig(params: {
               kind: "block",
               inboundAudio,
               ttsAuto: sessionTtsAuto,
-              agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
+              agentId: dispatchAgentId,
             });
             if (shouldRouteToOriginating) {
               await sendPayloadAsync(ttsPayload, context?.abortSignal, false);
@@ -804,7 +813,7 @@ export async function dispatchReplyFromConfig(params: {
           kind: "final",
           inboundAudio,
           ttsAuto: sessionTtsAuto,
-          agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
+          agentId: dispatchAgentId,
         });
         // Only send if TTS was actually applied (mediaUrl exists)
         if (ttsSyntheticReply.mediaUrl) {

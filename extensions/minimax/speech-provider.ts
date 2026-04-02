@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import type {
   SpeechDirectiveTokenParseContext,
@@ -55,6 +56,19 @@ function parseNumberValue(value: string): number | undefined {
 function normalizeMiniMaxBaseUrl(baseUrl: string | undefined): string {
   const trimmed = baseUrl?.trim();
   return trimmed?.replace(/\/+$/, "") || DEFAULT_MINIMAX_BASE_URL;
+}
+
+function convertMp3ToOggOpus(mp3Buffer: Buffer): Buffer {
+  try {
+    return execSync("ffmpeg -y -i pipe:0 -ar 48000 -ac 1 -c:a libopus -b:a 64k -f ogg pipe:1", {
+      input: mp3Buffer,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+  } catch (err) {
+    throw new Error(
+      `MiniMax MP3→OGG conversion failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 function normalizeMiniMaxProviderConfig(
@@ -268,12 +282,9 @@ export function buildMiniMaxSpeechProvider(): SpeechProviderPlugin {
         ? {}
         : { languageBoost: trimToUndefined(params.languageBoost) }),
     }),
-    listVoices: async () =>
-      MINIMAX_TTS_VOICES.map((voice) => ({ id: voice, name: voice })),
+    listVoices: async () => MINIMAX_TTS_VOICES.map((voice) => ({ id: voice, name: voice })),
     isConfigured: ({ providerConfig }) =>
-      Boolean(
-        readMiniMaxProviderConfig(providerConfig).apiKey || process.env.MINIMAX_API_KEY,
-      ),
+      Boolean(readMiniMaxProviderConfig(providerConfig).apiKey || process.env.MINIMAX_API_KEY),
     synthesize: async (req) => {
       const config = readMiniMaxProviderConfig(req.providerConfig);
       const overrides = req.providerOverrides ?? {};
@@ -297,11 +308,22 @@ export function buildMiniMaxSpeechProvider(): SpeechProviderPlugin {
         languageBoost: trimToUndefined(overrides.languageBoost) ?? config.languageBoost,
         timeoutMs: req.timeoutMs,
       });
+      const isVoiceNote = req.target === "voice-note";
+      let finalBuffer = audioBuffer;
+      let outputFormat = "mp3";
+      let fileExtension = ".mp3";
+      let voiceCompatible = false;
+      if (isVoiceNote) {
+        finalBuffer = convertMp3ToOggOpus(audioBuffer);
+        outputFormat = "ogg";
+        fileExtension = ".ogg";
+        voiceCompatible = true;
+      }
       return {
-        audioBuffer,
-        outputFormat: "mp3",
-        fileExtension: ".mp3",
-        voiceCompatible: false,
+        audioBuffer: finalBuffer,
+        outputFormat,
+        fileExtension,
+        voiceCompatible,
       };
     },
     synthesizeTelephony: async (req) => {

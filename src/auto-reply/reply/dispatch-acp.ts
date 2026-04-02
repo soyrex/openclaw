@@ -261,6 +261,7 @@ async function finalizeAcpTurnOutput(params: {
         kind: "final",
         inboundAudio: params.inboundAudio,
         ttsAuto: params.sessionTtsAuto,
+        agentId: resolveAgentIdFromSessionKey(params.sessionKey),
       });
       if (ttsSyntheticReply.mediaUrl) {
         const delivered = await params.delivery.deliver("final", {

@@ -32,6 +32,7 @@ type MiniMaxTtsProviderConfig = {
   pitch: number;
   emotion?: string;
   languageBoost?: string;
+  agentVoices?: Record<string, string>;
 };
 
 function trimToUndefined(value: unknown): string | undefined {
@@ -51,6 +52,34 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
 function parseNumberValue(value: string): number | undefined {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function normalizeAgentVoices(value: unknown): Record<string, string> | undefined {
+  const map = asObject(value);
+  if (!map) {
+    return undefined;
+  }
+  const normalized = Object.entries(map).reduce<Record<string, string>>((acc, [key, val]) => {
+    const normalizedAgentId = trimToUndefined(key)?.toLowerCase();
+    const voiceId = trimToUndefined(val);
+    if (!normalizedAgentId || !voiceId) {
+      return acc;
+    }
+    acc[normalizedAgentId] = voiceId;
+    return acc;
+  }, {});
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function resolveAgentVoiceId(
+  agentId: string | undefined,
+  agentVoices: Record<string, string> | undefined,
+): string | undefined {
+  const normalizedAgentId = trimToUndefined(agentId)?.toLowerCase();
+  if (!normalizedAgentId || !agentVoices) {
+    return undefined;
+  }
+  return trimToUndefined(agentVoices[normalizedAgentId]);
 }
 
 function normalizeMiniMaxBaseUrl(baseUrl: string | undefined): string {
@@ -89,6 +118,7 @@ function normalizeMiniMaxProviderConfig(
     pitch: asNumber(raw?.pitch) ?? DEFAULT_MINIMAX_PITCH,
     emotion: trimToUndefined(raw?.emotion),
     languageBoost: trimToUndefined(raw?.languageBoost),
+    agentVoices: normalizeAgentVoices(raw?.agentVoices),
   };
 }
 
@@ -104,6 +134,7 @@ function readMiniMaxProviderConfig(config: SpeechProviderConfig): MiniMaxTtsProv
     pitch: asNumber(config.pitch) ?? defaults.pitch,
     emotion: trimToUndefined(config.emotion) ?? defaults.emotion,
     languageBoost: trimToUndefined(config.languageBoost) ?? defaults.languageBoost,
+    agentVoices: normalizeAgentVoices(config.agentVoices) ?? defaults.agentVoices,
   };
 }
 
@@ -115,14 +146,27 @@ function parseDirectiveToken(ctx: SpeechDirectiveTokenParseContext): {
   try {
     switch (ctx.key) {
       case "minimax_voice":
-      case "minimaxvoice":
+      case "minimaxvoice": {
         if (!ctx.policy.allowVoice) {
           return { handled: true };
         }
+        const voiceToken = ctx.value.toLowerCase();
+        const agentVoiceId =
+          voiceToken === "auto" || voiceToken === "agent"
+            ? resolveAgentVoiceId(
+                ctx.agentId,
+                normalizeAgentVoices(asObject(ctx.providerConfig)?.agentVoices),
+              )
+            : undefined;
+        if ((voiceToken === "auto" || voiceToken === "agent") && !agentVoiceId) {
+          return { handled: true };
+        }
+        const resolvedVoiceId = agentVoiceId ?? ctx.value;
         return {
           handled: true,
-          overrides: { ...(ctx.currentOverrides ?? {}), voiceId: ctx.value },
+          overrides: { ...(ctx.currentOverrides ?? {}), voiceId: resolvedVoiceId },
         };
+      }
       case "model":
       case "minimax_model":
       case "minimaxmodel":
@@ -293,12 +337,13 @@ export function buildMiniMaxSpeechProvider(): SpeechProviderPlugin {
         throw new Error("MiniMax API key missing");
       }
       // MiniMax always produces MP3 regardless of channel target.
+      const resolvedAgentVoiceId = resolveAgentVoiceId(req.agentId, config.agentVoices);
       const audioBuffer = await minimaxTTS({
         text: req.text,
         apiKey,
         baseUrl: config.baseUrl,
         model: trimToUndefined(overrides.model) ?? config.model,
-        voiceId: trimToUndefined(overrides.voiceId) ?? config.voiceId,
+        voiceId: trimToUndefined(overrides.voiceId) ?? resolvedAgentVoiceId ?? config.voiceId,
         audioFormat: "mp3",
         sampleRate: 32_000,
         speed: asNumber(overrides.speed) ?? config.speed,

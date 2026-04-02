@@ -47,6 +47,7 @@ export type SpeechSynthesisRequest = {
   target: SpeechSynthesisTarget;
   providerOverrides?: SpeechProviderOverrides;
   timeoutMs: number;
+  agentId?: string;
 };
 
 export type SpeechSynthesisResult = {
@@ -98,6 +99,7 @@ export type SpeechDirectiveTokenParseContext = {
   policy: SpeechModelOverridePolicy;
   providerConfig?: SpeechProviderConfig;
   currentOverrides?: SpeechProviderOverrides;
+  agentId?: string;
 };
 
 export type SpeechDirectiveTokenParseResult = {

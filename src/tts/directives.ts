@@ -12,6 +12,7 @@ type ParseTtsDirectiveOptions = {
   cfg?: OpenClawConfig;
   providers?: readonly SpeechProviderPlugin[];
   providerConfigs?: Record<string, SpeechProviderConfig>;
+  agentId?: string;
 };
 
 function buildProviderOrder(left: SpeechProviderPlugin, right: SpeechProviderPlugin): number {
@@ -96,6 +97,7 @@ export function parseTtsDirectives(
           policy,
           providerConfig: resolveDirectiveProviderConfig(provider, options),
           currentOverrides: overrides.providerOverrides?.[provider.id],
+          agentId: options?.agentId,
         });
         if (!parsed?.handled) {
           continue;

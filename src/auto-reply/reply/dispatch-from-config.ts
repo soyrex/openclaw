@@ -522,6 +522,7 @@ export async function dispatchReplyFromConfig(params: {
         kind: "final",
         inboundAudio,
         ttsAuto: sessionTtsAuto,
+        agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
       });
       if (shouldRouteToOriginating && originatingChannel && originatingTo) {
         const result = await routeReplyRuntime.routeReply({
@@ -677,6 +678,7 @@ export async function dispatchReplyFromConfig(params: {
               kind: "tool",
               inboundAudio,
               ttsAuto: sessionTtsAuto,
+              agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
             });
             const deliveryPayload = resolveToolDeliveryPayload(ttsPayload);
             if (!deliveryPayload) {
@@ -727,6 +729,7 @@ export async function dispatchReplyFromConfig(params: {
               kind: "block",
               inboundAudio,
               ttsAuto: sessionTtsAuto,
+              agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
             });
             if (shouldRouteToOriginating) {
               await sendPayloadAsync(ttsPayload, context?.abortSignal, false);
@@ -801,6 +804,7 @@ export async function dispatchReplyFromConfig(params: {
           kind: "final",
           inboundAudio,
           ttsAuto: sessionTtsAuto,
+          agentId: resolveSessionAgentId({ sessionKey: ctx.SessionKey, config: cfg }),
         });
         // Only send if TTS was actually applied (mediaUrl exists)
         if (ttsSyntheticReply.mediaUrl) {
